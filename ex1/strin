@@ -1,0 +1,153 @@
+/* This is a C++17 file.
+ * This headfile is used to operate strings.
+ * Author Liao
+ * Date 20191027
+ * int string_length
+ * bool string_copy
+ * bool string_compare
+ * double power
+ * char *paraInput
+ * double *extract_number
+ */
+#include "iostream"
+
+// Wether two numbers' sign same
+bool sign_detect(double first_num, double second_num)
+{
+    if(first_num == second_num) return true;
+    else if(first_num * second_num > 0) return true;
+    else if(first_num * second_num < 0) return false;
+    else if(first_num > 0 || second_num > 0) return true;
+    else return false;
+}
+// Need two number, one of them is thebase number and the other one is thepower times.
+double power(double base, double times){
+    double single = base, pow = 1.0;
+    for(int i=0; i<times; i++){
+        pow *= single;
+    }return pow;
+}
+// Need a resource string and calculate its length then return length with a integer. 
+int string_length(char *str){
+    int length = 0;
+    while(str [length++]);
+    return --length;
+}
+// Need two resource strings and compare their each element. If they are the same one return true, false conversely.
+bool string_compare(char *prior_str, char *next_str){
+    int i = 0, j = 0;
+    int la = string_length(prior_str);
+    int lb = string_length(next_str);
+    if(la == lb){
+        while(i<la || j<lb){
+            if(prior_str[i] == next_str[j]){
+                i ++; j ++;
+            }else return false;
+        }return true;
+    }else return false;
+}
+// Need two resource strings, one of them is target string and the other is the source string. If copy successfully return true, false conversely. 
+bool string_copy(char *dest_str, char *src_str){
+    int l = string_length(src_str), i = 0;
+    for(i=0; i<l; i++)dest_str[i] = src_str[i]; dest_str[i] = '\0';
+    if(string_compare(dest_str,src_str))return 1;
+    else return 0;
+}
+// This function would return a string which contains input stream.
+char *paraInput(){
+    fflush(stdin);
+    std::cout << "Please end submit with double enter." << std::endl;
+    std::cout << std::endl; 
+    char *cmtr = new char[2000]; 
+    int i = 0;
+    char temp, enter; 
+    while(i < 2000){
+        temp = getchar();
+        if(temp == '\n'){
+            enter = getchar();
+            if(enter == '\n') break;
+            else {
+                cmtr[i] = '\n';
+                cmtr[++i] = enter;
+            }
+        }else cmtr[i] = temp; i ++;
+    }cmtr[i] = '\0';
+    int l = string_length(cmtr);
+    char *init_str = new char[l];
+    string_copy(init_str, cmtr);
+    fflush(stdin);
+    if(string_compare(init_str, cmtr)){
+        delete[] cmtr;
+        cmtr = nullptr;
+        return init_str;
+    }else{
+        delete[] cmtr;
+        cmtr = nullptr;
+        delete[] init_str;
+        init_str = nullptr;
+        return nullptr;
+    }
+}
+// Need a string which contain a formative matrix. This function will return a sequence array which contains whole elements of matrix.
+double *extract_number(char *num_str){
+    int i = 0, cnt = 0, len = string_length(num_str), amt = 0;
+    // get the amount of the number from string
+    while(i < len){
+        if(num_str[i]=='.' || num_str[i]=='-' || num_str[i]=='+' || (num_str[i]>='0' && num_str[i]<='9'))
+            if(i == 0 || num_str[i-1]==' '|| num_str[i-1]=='\t' || num_str[i-1]=='\n') cnt ++;
+        i ++;
+    } double *num_seq = new double[cnt];
+    amt = cnt;
+    cnt = 0;
+    for(int j=0; j<amt; j++){
+        num_seq[j] = 0.0;
+    } i = 0;
+    while(i < len){
+        double temp = 0.0, div = 0.0, dec = 0.0;
+        bool neg = false, di = false;
+        /*
+        When iterate to a new number, go into the loop
+        */
+        if(num_str[i]=='.' || num_str[i]=='-' || num_str[i]=='+' || (num_str[i]>='0' && num_str[i]<='9')){
+            // looping when meet a punctuated symbol
+            bool de = false;
+            int de_num = 0;
+            while(num_str[i]!=' ' && num_str[i]!='\t' && num_str[i]!='\n' && num_str[i]!='\0'){
+                if(num_str[i] == '-'){
+                    // when meet a negative symbol sign convert to true
+                    neg = true;
+                }if(num_str[i]>='0' && num_str[i]<='9'){
+                    // if meet decimal sign is true
+                    if(de){
+                        dec += (num_str[i]-'0')*1.0/power(10, de_num);
+                        de_num ++;
+                    }else{
+                        // if the fractional sign is true
+                        if(di) div = div*10.0+(num_str[i]-'0')*1.0;
+                        else temp = temp*10.0+(num_str[i]-'0')*1.0;
+                    }
+                }if(num_str[i] == '.'){
+                    // this one is a decimal symbol
+                    de = true;
+                    de_num ++;
+                }if(num_str[i] == '/'){
+                    // this one is a fractional symbol
+                    di = true;
+                    temp += dec;
+                    dec = 0.0;
+                    de_num = 0;
+                    de = false;
+                }i ++;
+            }if(di){
+                div += dec;
+                if(neg) div *= -1.0;
+                temp /= div;
+            }else{
+                temp += dec;
+                if(neg)temp *= -1.0;
+            }
+        } num_seq[cnt ++] = temp;
+        i ++;
+    }
+    return num_seq;
+}

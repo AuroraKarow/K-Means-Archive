@@ -1,0 +1,630 @@
+/* This is a C++17 file.
+ * This is a headfile which contain the matrix operational function.
+ * Author Liao
+ * Date 201911111
+ * double **get_matrix
+ * double **copy_matrix
+ * double **add_matrix
+ * double **subtract_matrix
+ * double **multiply_matrix
+ * double **get_inverse_matrix
+ * double get_matrix_det
+ * double **get_LU
+ * Warning: If the matrix string is NOT in a right equation form, the process would not execute.
+*/
+#include "strin"
+
+// The supported recursive funtion
+double det(int dimension, double *matrix){
+	if (dimension == 1) return matrix[0];
+    // create nD algebraic cofactor
+	double *ac = new double[(dimension - 1)*(dimension - 1)];
+    // move sign  
+	int mov = 0;
+    // det initialization
+	double sum = 0.0; 
+    // assign the matrix line amount to ac[n-1]
+	for (int arow = 0; arow<dimension; arow++){
+        // assign the matrix each column ac to ac array
+		for (int brow = 0; brow<dimension - 1; brow++){
+            /* < arrow   assign to the same line
+             * = arrow   dismiss
+             * > arrow  ++
+             */    
+			mov = arow > brow ? 0 : 1;
+            // assign the matrix[][1] to matrix[][dimension-1] 
+			for (int j = 0; j<dimension - 1; j++){
+				ac[brow*(dimension - 1) + j] = matrix[(brow + mov)*dimension + j + 1];
+			}
+		}// judge the line number whether is 0, ac would be 1 when the line amount is a even.
+		int flag = (arow % 2 == 0 ? 1: -1);
+        // Recursive process
+		sum += flag* matrix[arow*dimension] * det(dimension - 1, ac);
+	}delete[]ac;
+	return sum;
+}
+// Delete matrix
+void delete_matrix(double **matrix, int line){
+    for(int i=0; i<line; i++)
+        delete []matrix[i];
+    delete []matrix;
+    matrix = nullptr;
+}
+// Get max value of a array
+double get_max_value(double array[], int length, int &location){
+    double max = array[0];
+    location = 0;
+    for(int i=1; i<length; i++){
+        if(array[i] > max) max = array[i];
+        location = i;
+    }return max;
+}
+// Get max value of a array
+double get_min_value(double array[], int length, int &location){
+    double min = array[0];
+    location = 0;
+    for(int i=1; i<length; i++){
+        if(array[i] < min) min = array[i];
+        location = i;
+    }return min;
+}
+// Get absolute value
+double get_absolute_value(double value){
+    if(value < 0)value *=(-1.0);
+    return value;
+}
+// Reload - array
+double *get_absolute_value(double* array, int length){
+    double *abs = new double[length];
+    for(int i=0; i<length; i++)
+        if(array[i] < 0) abs[i] = array[i]*(-1.0);
+        else abs[i] = array[i];
+    return abs;
+}
+//show matrix
+void show_matrix(double **matrix, int line, int column){
+    for(int i=0; i<line; i++){
+        for(int j=0; j<column; j++) std::cout << matrix[i][j] << '\t';
+        std::cout << std::endl;
+    }
+}
+void show_matrix(double *matrix, int line, int column){
+    if(line == 1) for(int i=0; i<column; i++) std::cout << matrix[i] << '\t';
+    else for(int i=0; i<line; i++) std::cout << matrix[i] << std::endl;
+    std::cout << std::endl;
+}
+// Need a source matrix array and its line and column amount. This function is used to copy a matrix and return a duplication.
+double **copy_matrix(double **source_matrix, int line, int column){
+    double **mat = new double*[line];
+    for(int i=0; i<line; i++) mat[i] = new double[column];
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++) mat[i][j] = 0.0;
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++)
+            mat[i][j] = source_matrix[i][j];
+    return mat;
+}
+double *copy_matrix(double *source_matrix, int line, int column){
+    if(line && column){
+        int iter = 0;
+        if(line == 1) iter = column;
+        else iter = line;
+        double *mat = new double[iter];
+        for(int i=0; i<iter; i++) mat[i] = 0;
+        for(int i=0; i<iter; i++) mat[i] = source_matrix[i];
+        return mat;
+    } else return 0;
+}
+/* Output: matrix line amount, column amount
+ * Input: formative matrix string
+ * This function is used to convert a matrix string to a double 2D array for convenient calculation. Return a 2D array.
+ */
+double **get_matrix(char *mat_str, int &line, int &column){
+    int col_num = 0;
+    int line_num = 0;
+    int cnt = 0;
+    // get column amount
+    while(mat_str[cnt] != '\n' && mat_str[cnt] != '\0'){
+        if(mat_str[cnt]=='.' || mat_str[cnt]=='-' || mat_str[cnt]=='+' ||
+        (mat_str[cnt]>='0' && mat_str[cnt]<='9') || mat_str[cnt]=='/')
+            if(mat_str[cnt-1]==' '|| mat_str[cnt-1]=='\t' || cnt-1<0) col_num ++;
+        cnt ++;
+    }cnt = 0;
+    for(int i=0; i<string_length(mat_str); i++){
+        if(mat_str[i] == '\n') line_num ++;
+    }line_num ++;
+    double **matrix = new double*[line_num];
+    for(int i=0; i<line_num; i++){
+        matrix[i] = new double[col_num];
+    }
+    double *elem = extract_number(mat_str);
+    for(int i=0; i<line_num; i++)
+        for(int j=0; j<col_num; j++)
+            matrix[i][j] = elem[cnt ++];
+    line = line_num;
+    column = col_num;
+    return matrix;
+}
+// Need two matrix arrays with same dimension and their line and column amount. Make a addition process operation with two matrix in 2D array. Return the result in 2D array.
+double **add_matrix(double **left_matrix, double **right_matrix, int line, int column){
+    double **mat = new double*[line];
+    for(int i=0; i<line; i++) mat[i] = new double[column];
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++) mat[i][j] = 0.0;
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++) 
+            mat[i][j] = left_matrix[i][j]+right_matrix[i][j];
+    return mat;
+}
+double *add_matrix(double *left_matrix, double *right_matrix, int dimension_or_series){
+    double *mat = new double[dimension_or_series];
+    for(int i=0; i<dimension_or_series; i++) mat[i] = 0.0;
+    for(int i=0; i<dimension_or_series; i++) mat[i] = left_matrix[i] + right_matrix[i];
+    return mat;
+}
+// Need two matrix arrays with same dimension and their line and column amount. Make a subtraction process operation with two matrix in 2D array. Return the result in 2D array.
+double **subtract_matrix(double **left_matrix, double **right_matrix, int line, int column){
+    double **mat = new double*[line];
+    for(int i=0; i<line; i++) mat[i] = new double[column];
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++) mat[i][j] = 0.0;
+    for(int i=0; i<line; i++)
+        for(int j=0; j<column; j++) 
+            mat[i][j] = left_matrix[i][j]-right_matrix[i][j];
+    return mat;
+}
+double *subtract_matrix(double *left_matrix, double *right_matrix, int dimension_or_series){
+    double *mat = new double[dimension_or_series];
+    for(int i=0; i<dimension_or_series; i++) mat[i] = 0.0;
+    for(int i=0; i<dimension_or_series; i++) mat[i] = left_matrix[i] - right_matrix[i];
+    return mat;
+}
+// Need two matrix 2D arrays, the left matrix array's line and right's column amount. The previous number should equals to right matrix array's column amount and the later should equals to the left's line amount.
+double **multiply_matrix(double **left_matrix, double **right_matrix, int left_line, int left_column, int right_line, int right_column){
+    if(left_column!=right_line) return nullptr;
+    double **mat = new double*[left_line];
+    for(int i=0; i<left_line; i++) mat[i] = new double[right_column];
+    for(int i=0; i<left_line; i++)
+        for(int j=0; j<right_column; j++) mat[i][j] = 0.0;
+    for(int i=0; i<left_line; i++)
+        for(int j=0; j<right_column; j++){
+            double sum = 0.0;
+            for(int k=0; k<left_column; k++) sum += left_matrix[i][k]*right_matrix[k][j];
+            mat[i][j] = sum;
+        }return mat;
+}
+double *multiply_matrix(double **left_matrix, double *right_matrix, int left_line, int left_column, int right_line){
+    if(left_column == right_line){
+        double *mat = new double[left_line];
+        for(int i=0; i<left_line; i++) mat[i] = 0;
+        for(int i=0; i<left_line; i++){
+            double sum = 0.0;
+            for(int j=0; j<left_column; j++) sum += left_matrix[i][j]*right_matrix[j];
+            mat[i] = sum;
+        } return mat;
+    }else return nullptr;
+}
+double multiply_matrix(double *left_matrix, double*right_matrix, int left_series){
+    double sum = 0.0;
+    for(int i=0; i<left_series; i++) sum += left_matrix[i]*right_matrix[i];
+    return sum;
+}
+double **multiply_matrix(double *left_matrix, double*right_matrix, int left_dimension, int right_series){
+    double **mat = new double*[left_dimension];
+    for(int i=0; i<left_dimension; i++) mat[i] = new double[right_series];
+    for(int i=0; i<left_dimension; i++)
+        for(int j=0; j<right_series; j++) mat[i][j] = 0.0;
+    for(int i=0; i<left_dimension; i++)
+        for(int j=0; j<right_series; j++) mat[i][j] = left_matrix[i]*right_matrix[j];
+    return mat;
+}
+// This function implements LU decomposition algorithm. Need a matrix array and its dimension. It returns the matrix's LU matrix array.
+double **get_LU(double **matrix, int dimension){
+    double **lu = copy_matrix(matrix, dimension, dimension);
+    double **e = new double*[dimension];
+    for(int i=0; i<dimension; i++) e[i] = new double[dimension];
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++) e[i][j] = 0.0;
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            if(i == j) e[i][j] = 1.0;
+    double **l = copy_matrix(e, dimension, dimension);
+    for(int i=0; i<dimension-1; i++){
+        double ** tool = copy_matrix(e, dimension, dimension);
+        for(int j=dimension-1; j>i; j--)
+            tool [j][i] = -1.0*lu[j][i]/lu[i][i];
+        for(int j=dimension-1; j>i; j--) l[j][i] = -1.0*tool[j][i];
+        for(int j=dimension-1; j>i; j--) lu[j][i] = -1.0*tool[j][i];
+        lu = multiply_matrix(tool, lu, dimension, dimension, dimension, dimension);
+    }// get the inversion matrix
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            if(i > j) lu[i][j] = l[i][j];
+    delete[] l;
+    delete[] e;
+    l = nullptr;
+    e = nullptr;
+    return lu;
+}
+// This function is used to calculate linear equation and get the result matrix. Need a coefficient matrix array, equation matrix array and their dimension. It returns a double precise matrix array.
+double *equation_result(double **coefficient, double *b, int dimension){
+    double *y = new double[dimension];
+    double *x = new double[dimension];
+    double **lu = get_LU(coefficient, dimension);
+    double **e = new double*[dimension];
+    for(int i=0; i<dimension; i++) e[i] = new double[dimension];
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            if(i == j) e[i][j] = 1.0;
+            else e[i][j] = 0.0;
+    double **l = copy_matrix(e, dimension, dimension);
+    double **u = copy_matrix(e, dimension, dimension);
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            if(i<=j) u[i][j] = lu[i][j];
+            else l[i][j] = lu[i][j]; 
+    for(int i=0; i<dimension; i++)
+        if(i){
+            double temp = 0.0;
+            for(int j=0; j<i; j++)temp += y[j]*l[i][j]*1.0;
+            y[i] = b[i]-temp;
+        }else y[i] = b[i];
+    for(int i=dimension; i>0; i--)
+        if(i-dimension){
+            double temp = 0.0;
+            for(int n=i-1; n<dimension-1; n++)
+                temp += u[i-1][n+1]*x[n+1];
+            x[i-1] = (y[i-1]-temp)/u[i-1][i-1];
+        }else x[dimension-1] = y[dimension-1]/u[dimension-1][dimension-1];
+    delete[] y; y = nullptr;
+    delete_matrix(e, dimension);
+    delete_matrix(lu, dimension);
+    delete_matrix(l, dimension);
+    delete_matrix(u, dimension);
+    return x;
+}
+// Need a matrix 2D array and its line and column amount. This function would return the matrix's inverse matrix array.(This algorithm is LU decomposition)
+double **get_inverse_matrix(double **matrix, int dimension){
+    double **e = new double*[dimension];
+    for(int i=0; i<dimension; i++) e[i] = new double[dimension];
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++) e[i][j] = 0.0;
+    double **inverse = copy_matrix(e, dimension, dimension);
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            if(i == j) e[i][j] = 1.0;
+    for(int i=0; i<dimension; i++){
+        double *b = new double[dimension];
+        for(int j=0; j<dimension; j++) b[j] = e[j][i];
+        double *x = equation_result(matrix, b, dimension);
+        for(int n=0; n<dimension; n++) inverse[n][i] = x[n];
+    }delete_matrix(e, dimension);
+    return inverse;
+}
+// Need a matrix array and its dimension. This functionwill return a double precise value which is matrix'sdet result.
+double get_matrix_det(double **matrix, int dimension){
+    int length = dimension * dimension;
+    double *sequence = new double[length];
+    length = 0;
+    for(int i=0; i<dimension; i++)
+        for(int j=0; j<dimension; j++)
+            sequence[length++] = matrix[i][j];
+    double sum = det(dimension, sequence);
+    return sum;
+}
+// This function is used to calculate matrix's the max eigenvalue and max eigenmatrix. Need a error value, matrix array, iterative initial value for lambda and its dimension. Return a double precise value, with 0 failed calaulation. W is the last normalized eigen vector.
+double get_max_eigenvalue(double **matrix, int dimension, double error, double init_elem, double *w){
+    double lambda = 0.0, lambda_temp = 0.0, **x = new double*[dimension];
+    int cntr = 0;
+    for(int i=0; i<dimension; i++) x[i] = new double;
+    for(int i=0; i<dimension; i++) x[i][0] = init_elem;
+    do{
+        lambda = lambda_temp;
+        double *temp = new double[dimension];
+        for(int i=0; i<dimension; i++) temp[i] = x[i][0];
+        double max = get_max_value(get_absolute_value(temp, dimension), dimension, cntr);
+        for(int i=0; i<dimension; i++) x[i][0] /= max;
+        for(int i=0; i<dimension; i++) w[i] = x[i][0];
+        double sum = 0.0;
+        for(int i=0; i<dimension; i++) sum += w[i];
+        for(int i=0; i<dimension; i++) w[i]/= sum;
+        x = multiply_matrix(matrix, x, dimension, dimension, dimension, 1);
+        for(int i=0; i<dimension; i++) temp[i] = x[i][0];
+        lambda_temp = get_max_value(temp, dimension, cntr);        
+        delete temp; temp = nullptr;
+    }while(get_absolute_value(lambda_temp-lambda) > error);
+    delete_matrix(x, dimension);
+    return lambda;
+}
+// This function uses Jacobi algorithm to calculate the result of a linear equation. Need a coefficient matrix array, value. Return the calculation result.
+double *jacobi_iterate(double **coefficient, double *b, int dimension, double error, double init_elem){
+    double *x = new double[dimension], *temp = new double[dimension];
+    for(int i=0; i<dimension; i++) temp[i] = init_elem;
+    bool flag = false;
+    do{
+        flag = false;        
+        for(int i=0; i<dimension; i++) x[i] = temp[i];
+        for(int i=0; i<dimension; i++){
+            double sum = 0.0;
+            for(int j=0; j<dimension; j++)
+                if(i != j) sum += coefficient[i][j]*x[j];
+            temp[i] = (b[i] - sum)/coefficient[i][i];
+        }for(int i=0; i<dimension; i++)
+            if(get_absolute_value(x[i]-temp[i]) >= error){
+                flag = true;
+                break;
+            }
+    }while(flag);
+    delete[] temp;
+    temp = nullptr;
+    return x;
+}
+// This function is used to make matrix transposition, need the matrix source point and its line count, column count.
+double **matrix_transposition(double ** matrix_value, int ln, int col){
+    double **trans_mat = new double*[col];
+    for(int i=0; i<col; i++) trans_mat[i] = new double[ln];
+    for(int i=0; i<ln; i++)
+        for(int j=0; j<col; j++) trans_mat[j][i] = 0.0;
+    for(int i=0; i<col; i++)
+        for(int j=0; j<ln; j++) trans_mat[i][j] = matrix_value[j][i];
+    return trans_mat;
+}
+// matrix package
+class matrix{
+    private:
+    double **matrix_value = nullptr;
+    int column = 0;
+    int line = 0;
+    void mat_ptr_init(int line, int col){
+        matrix_value = new double*[line];
+        for(int i=0; i<line; i++) matrix_value[i] = new double[col];
+    }
+    public:
+    // White matrix initialization, need the matrix line and column amount.
+    matrix(int ln, int col){
+        this->column = col;
+        this->line = ln;
+        mat_ptr_init(line, col);
+        for(int i=0; i<line; i++)
+            for(int j=0; j<col; j++) matrix_value[i][j] = 0.0;
+    }
+    // Array initialization, need the matrix source pointer and its line, column amount.
+    matrix(double *(matrix_value[]), int line, int col){
+        this->column = col;
+        this->line = line;
+        if(!matrix_value) mat_ptr_init(line, column);
+        this->matrix_value = copy_matrix(matrix_value, line, col);
+    }
+    matrix(double *matrix_value, int line, int col){
+        this->column = col;
+        this->line = line;
+        if(!this->matrix_value) mat_ptr_init(line, column);
+        for(int i=0; i<line; i++)
+            for(int j=0; j<col; j++) this->matrix_value[i][j] = 0.0;
+        if(line == 1)
+            for(int i=0; i<column; i++) this->matrix_value[0][i] = matrix_value[i];
+        else for(int i=0; i<line; i++) this->matrix_value[i][0] = matrix_value[i];
+    }
+    // Blank constructor.
+    matrix(){
+        std::cout << "Input the matrix for initialization: " << std::endl;
+        matrix_value = get_matrix(paraInput(), line, column);
+    }
+    int const get_column(){
+        return column;
+    }
+    int const get_line(){
+        return line;
+    }
+    double **get_matrix_value(){
+        double **mat = new double*[line];
+        for(int i=0; i<line; i++) mat[i] = new double[column];
+        for(int i=0; i<line; i++)
+            for(int j=0; j<column; j++) mat[i][j] = matrix_value[i][j];
+        return mat;
+    }
+    const double get_matrix_det_value(){
+        if(line == column)
+            return get_matrix_det(matrix_value, line);
+        else return 0;
+    }
+    // Adjudicate whether the matrix is null matrix
+    bool is_O_matrix(){
+        for(int i=0; i<line; i++)
+            for(int j=0; j<column; j++) if(matrix_value[i][j]) return false;
+        return true;
+    }
+    // Matrix transposition calculation
+    void transposition(){
+        int buffer = line;
+        line = column;
+        column = buffer;
+        matrix_value = matrix_transposition(matrix_value, line, column);
+    }
+    static matrix transposition(double **matrix_source, int ln, int col){
+        return matrix(matrix_transposition(matrix_source, ln, col), col, ln);
+    }
+    static matrix transposition(matrix matrix_source){
+        return transposition(matrix_source.matrix_value, matrix_source.line, matrix_source.column);
+    }
+    // Show the matrix
+    static void print_matrix_point(double *(matrix_pointer[]), int line, int column){
+        show_matrix(matrix_pointer, line, column);
+    }
+    // Get a identity matrix, need the matrix's dimension.
+    static matrix get_identity_matrix(int dimension){
+        double **e = new double*[dimension];
+        for(int i=0; i<dimension; i++) e[i] = new double[dimension];
+        for(int i=0; i<dimension; i++)
+            for(int j=0; j<dimension; j++)
+                if(i==j) e[i][j] = 1.0;
+                else e[i][j] = 0;
+        return matrix(e, dimension, dimension);
+    }
+    // Get the maximal value of the matrix
+    static double max_value(matrix mat_var, int &ln, int &col){
+        double max = 0.0;
+        ln = 0;
+        col = 0;
+        for(int i=0; i<mat_var.line; i++){
+            int col_temp = 0;
+            auto max_temp = get_max_value(mat_var[i], mat_var.column, col);
+            if(max < max_temp){
+                ln = i;
+                col = col_temp;
+                max = max_temp;
+            }
+        }return max;
+    }
+    /* LN_COL
+     * line true
+     * col false
+     */
+    static UINT max_value(matrix mat_var, int pos, bool LN_COL){
+        double max_var = mat_var[0][0];
+        UINT max_pos = 0;
+        if(LN_COL){
+            for(UINT i=0; i<mat_var.column; i++)
+                if(mat_var[pos][i] >= max_var){
+                    max_pos = i;
+                    max_var = mat_var[pos][i];
+                }
+        }else{
+            for(UINT i=0; i<mat_var.line; i++)
+                if(mat_var[i][pos] >= max_var){
+                    max_pos = i;
+                    max_var = mat_var[i][pos];
+                }
+        }return max_pos;
+    }
+    double max_value(int &ln, int &col){
+        return max_value(*this, ln, col);
+    }
+    UINT max_value(int pos, bool LN_COL){
+        return max_value(*this, pos, LN_COL);
+    }
+    // Get the minimal value of the matrix
+    static double min_value(matrix mat_var, int &ln, int &col){
+        double min = 0.0;
+        ln = 0;
+        col = 0;
+        for(int i=0; i<mat_var.line; i++){
+            int col_temp = 0;
+            auto min_temp = get_min_value(mat_var[i], mat_var.column, col);
+            if(min > min_temp){
+                ln = i;
+                col = col_temp;
+                min = min_temp;
+            }
+        }return min;
+    }
+    /* LN_COL
+     * line true
+     * col false
+     */
+    static UINT min_value(matrix mat_var, int pos, bool LN_COL){
+        double min_var = mat_var[0][0];
+        UINT min_pos = 0;
+        if(LN_COL){
+            for(UINT i=0; i<mat_var.column; i++)
+                if(mat_var[pos][i] <= min_var){
+                    min_pos = i;
+                    min_var = mat_var[pos][i];
+                }
+        }else{
+            for(UINT i=0; i<mat_var.line; i++)
+                if(mat_var[i][pos] <= min_var){
+                    min_pos = i;
+                    min_var = mat_var[i][pos];
+                }
+        }return min_pos;
+    }
+    double min_value(int &ln, int &col){
+        return min_value(*this, ln, col);
+    }
+    UINT min_value(int pos, bool LN_COL){
+        return min_value(*this, pos, LN_COL);
+    }
+    double *column_vector(){
+        if(column == 1){
+            double *vect = new double[line];
+            for(int i=0; i<line; i++) vect[i] = 0.0;
+            for(int i=0; i<line; i++) vect[i] = matrix_value[i][0];
+            return vect;
+        }else return nullptr;
+    }
+    double *vector_series(){
+        if(column == 1){
+            double *series = new double[line];
+            for(int i=0; i<line; i++) series[i] = 0.0;
+            for(int i=0; i<line; i++) series[i] = matrix_value[0][i];
+            return series;
+        }else return nullptr;
+    }
+    double* operator[](int line_num){
+        return matrix_value[line_num];
+    }
+    matrix operator+(matrix right_matrix){
+        if(line==right_matrix.get_line() && column==right_matrix.get_column())
+            return matrix(add_matrix(matrix_value, (double **)right_matrix.get_matrix_value(), line, column), line, column);
+        else return *this;
+    }
+    matrix operator-(matrix right_matrix){
+        if(line==right_matrix.get_line() && column==right_matrix.get_column())
+            return matrix(subtract_matrix(matrix_value, (double **)right_matrix.get_matrix_value(), line, column), line, column);
+        else return *this;
+    }
+    matrix operator*(matrix right_matrix){
+        if(column==right_matrix.get_line())
+            return matrix(multiply_matrix(matrix_value, right_matrix.matrix_value, line, column, right_matrix.line, right_matrix.column), line, right_matrix.column);
+        else return *this;
+    }
+    matrix operator*(double coefficiency){
+        matrix out_mat(matrix_value, line, column);
+        for(int i=0; i<line; i++)
+            for(int j=0; j<column; j++) out_mat[i][j] *= coefficiency;
+        return out_mat;
+    }
+    matrix operator^(int exponent){
+        if(exponent == -1)
+            if(line == column)
+            return matrix(get_inverse_matrix(matrix_value, line), line, column);
+            else return *this;
+        else if(exponent == 0) return matrix::get_identity_matrix(line);
+        else if(exponent > 0){
+            double **left_matrix = copy_matrix(matrix_value, line, column);
+            for(int i=1; i<exponent; i++){
+                left_matrix = multiply_matrix(left_matrix, matrix_value, line, line, line, line);
+            }return matrix(left_matrix, line, column);
+        }else return *this;
+    }
+    matrix operator=(matrix mat){
+        return matrix(mat.matrix_value, mat.line, mat.column);
+    }
+    void operator=(double *matrix_value){
+        if(line == 1)
+            for(int i=0; i<column; i++) this->matrix_value[i][0] = matrix_value[i];
+        else if(column == 1)
+            for(int i=0; i<line; i++) this->matrix_value[0][i] = matrix_value[i];
+        else return;
+    }
+    bool operator==(matrix mat){
+        if(line==mat.line && column==mat.column){
+            for(int i=0; i<line; i++)
+                for(int j=0; j<column; j++)
+                    if(matrix_value[i][j] != mat.matrix_value[i][j]) return false;
+            return true;
+        }else return false;
+    }
+    bool operator!=(matrix mat){
+        return !(*this == mat);
+    }
+    friend std::ostream &operator<<(std::ostream &output, const matrix &out_matrix){
+        for(int i=0; i<out_matrix.line; i++){
+            for(int j=0; j<out_matrix.column; j++)
+                output << out_matrix.matrix_value[i][j] << '\t';
+            if(i+1 != out_matrix.line) output << std::endl;
+        }return output;          
+    }
+    ~matrix(){}
+};
