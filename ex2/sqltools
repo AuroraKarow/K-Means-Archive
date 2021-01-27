@@ -1,0 +1,245 @@
+/* This is a C++17 file.
+ * This is a headfile which contain the matrix operational function.
+ * Author Liao
+ * Date 20191027
+ */
+
+#pragma once
+#pragma comment(lib, "odbc32.lib")
+
+#include "Windows.h"
+#include "sql.h"
+#include "sqlext.h"
+#include "strin"
+
+using namespace std;
+const int bufferLen = 100;
+
+// SQL string process
+SQLWCHAR *ws_to_sqlws(std::wstring wstr_src)
+{
+    SQLWCHAR *sqlwsBuf = new SQLWCHAR[wstr_src.length()];
+    for(auto i=0; i<wstr_src.length(); i++) sqlwsBuf[i] = wstr_src.c_str()[i];
+    sqlwsBuf[wstr_src.length()] = L'\0';
+    return sqlwsBuf;
+}
+SQLCHAR *ws_to_sqls(std::wstring wstr_src)
+{
+    auto strBuff = charset_exchange(wstr_src);
+    SQLCHAR *sqlsBuf = new SQLCHAR[strBuff.length()];
+    for(auto i=0; i<strBuff.length(); i++) sqlsBuf[i] = strBuff.c_str()[i];
+    sqlsBuf[strBuff.length()] = L'\0';
+    return sqlsBuf;
+}
+
+/*
+ * Database Licence
+ * This structure is a form which is generated and used to login the databse. It contains 3 variables -- user, password and database name.
+ */
+struct db_info{
+    private:
+    std::wstring USER = L"";
+    std::wstring PASSWORD = L"";
+    std::wstring DATASCR = L"";
+    public:
+    db_info(){}
+    //Data source name, database user name, database password
+    db_info(std::string data_src, std::string user, std::string password){
+        USER = charset_exchange(user);
+        PASSWORD = charset_exchange(password);
+        DATASCR = charset_exchange(data_src);
+    }
+    void _user(std::string user){
+        USER = charset_exchange(user);
+    }
+    std::wstring _user(){
+        return USER;
+    }
+    void _password(std::string password){
+        PASSWORD = charset_exchange(password);
+    }
+    std::wstring _password(){
+        return PASSWORD;
+    }
+    void _data_src(std::string data_src){
+        DATASCR = charset_exchange(data_src);
+    }
+    std::wstring _data_src(){
+        return DATASCR;
+    }
+    void print_info(){
+        std::cout << "Data source: " << charset_exchange(DATASCR) << std::endl;
+        std::cout << "User: " << charset_exchange(USER) << std::endl;
+        std::cout << "Password: " << charset_exchange(PASSWORD) << std::endl;
+    }
+    void operator=(db_info src)
+    {
+        USER = src._user();
+        DATASCR = src._data_src();
+        PASSWORD = src._password();
+    }
+    bool IsEmpty()
+    {
+        if(USER.length() || PASSWORD.length() || DATASCR.length()) return false;
+        else return true;
+    }
+    ~db_info(){}
+};
+
+/*
+ * result_set
+ * This class need a statement handle or assignment from sql_server::go to initialize. Using the assignment mode could get a better experience.
+ */
+class result_set{
+private:
+    int row_count = 0;
+    int col_count = 0;
+    std::map<uint64_t, std::map<std::wstring, std::wstring>>rs;
+public:
+    bool stat_flag = false;
+    result_set(){}
+    result_set(SQLHSTMT statement){
+        SQLSMALLINT col_cnt = 0;
+        SQLNumResultCols(statement, &col_cnt);
+        col_count = col_cnt;
+        while (SQLFetch(statement) != SQL_NO_DATA) {
+            std::map<std::wstring, std::wstring> ln_data;
+            for (int j = 0; j < col_count; j++) {
+                SQLWCHAR* bufferKey = new SQLWCHAR[bufferLen];
+                SQLSMALLINT nameLen = 0;
+                SQLULEN colSize = 0;
+                SQLSMALLINT dec = 0;
+                SQLSMALLINT DBType = 0;
+                int colIndex = 0;
+                SQLDescribeColW(
+                    statement, j + 1, bufferKey, bufferLen, &nameLen,
+                    &DBType, &colSize, &dec, SQL_NO_NULLS
+                );
+                std::wstring keyStr = bufferKey;
+                SQLWCHAR* bufferData = new SQLWCHAR[bufferLen];
+                for (int i = 0; i < bufferLen; i++) bufferData[i] = ' ';
+                SQLLEN valueLen = 0;
+                SQLGetData(statement, j + 1, SQL_C_WCHAR, bufferData, bufferLen, &valueLen);
+                std::wstring datStr = L"";
+                if (bufferData[0] != ' ') datStr = bufferData;
+                ln_data.insert(std::pair<std::wstring, std::wstring>(keyStr, datStr));
+                delete[] bufferKey;
+                delete[] bufferData;
+            } rs.insert(std::pair<int, std::map<std::wstring, std::wstring>>(row_count, ln_data));
+            row_count++;
+        }
+        // SQLFetchScroll(statement, SQL_FETCH_ABSOLUTE, 0);
+    }
+    int get_column_count(){
+        return col_count;
+    }
+    int get_row_count(){
+        return row_count;
+    }
+    std::map<std::wstring, std::wstring>get_result(int row_num) {
+        return rs[row_num];
+    }
+    std::map<uint64_t, std::wstring>get_result(std::wstring col_name) {
+        std::map<uint64_t, std::wstring>rs_temp;
+        for (int i = 0; i < (int)rs.size(); i++) {
+            rs_temp.insert(std::pair<int, std::wstring>(i, rs[i][col_name]));
+        } return rs_temp;
+    }
+    std::map<uint64_t, std::map<std::wstring, std::wstring>>get_result()
+    {
+        return rs;
+    }
+    void operator=(result_set rsSrc)
+    {
+        col_count = rsSrc.col_count;
+        row_count = rsSrc.row_count;
+        stat_flag = rsSrc.stat_flag;
+        for (auto mapRsTemp : rsSrc.rs)
+        {
+            std::map<std::wstring, std::wstring> mapFV;
+            for (auto mapFVTemp : mapRsTemp.second)
+                mapFV.insert(std::pair<std::wstring, std::wstring>(mapFVTemp.first, mapFVTemp.second));
+            rs.insert(std::pair<uint64_t, std::map<std::wstring, std::wstring>>(mapRsTemp.first, mapFV));
+        }
+    }
+    ~result_set(){}
+};
+/*
+ * Database tool
+ * This is a static class whose construction function could not be used to initialize.
+ */
+class sql_server{
+    private:
+    // Tool class
+    sql_server(){}
+    public:
+    /*
+     * Operation method
+     * In order to make query, need database login information and SQL instruction. The error or updating operation would return nullptr.
+     */
+    static result_set go(db_info DBLogInfo, std::string SQLInstruct){
+        // Statement
+        SQLHSTMT hstmt;
+        // Operation variable
+        SQLRETURN ret;
+        // Handle environment
+        SQLHENV henv;
+        // Handle DB controller
+        SQLHDBC hdbc;
+        // Apply the environment handle
+        ret = SQLAllocHandle(SQL_HANDLE_ENV, nullptr, &henv);
+        // Set environment attribution
+        ret = SQLSetEnvAttr(
+            henv, SQL_ATTR_ODBC_VERSION,
+            (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER
+        );
+        // Apply the database connection handle
+        ret = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+        // Connect to the database 
+        ret = SQLConnect(
+                hdbc, ws_to_sqls(DBLogInfo._data_src()), SQL_NTS,
+                ws_to_sqls(DBLogInfo._user()),
+                SQL_NTS, ws_to_sqls(DBLogInfo._password()), SQL_NTS
+            );
+        // Execute the instruction
+        if(ret==SQL_SUCCESS || ret==SQL_SUCCESS_WITH_INFO){
+            // Apply the SQL instruction handel
+            ret = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+            SQLSetStmtAttr(hstmt, SQL_ATTR_CURSOR_SCROLLABLE, (SQLPOINTER)SQL_SCROLLABLE, SQL_NTS);
+            // Execute the SQL instruction
+            ret = SQLExecDirect(hstmt, (SQLCHAR*)SQLInstruct.c_str(), SQL_NTS);
+            if(ret==SQL_SUCCESS || ret==SQL_SUCCESS_WITH_INFO){
+                SQLSMALLINT colTemp = 0;
+                SQLNumResultCols(hstmt, &colTemp);
+                if(colTemp){
+                    result_set rs(hstmt);
+                    SQLFreeStmt(hstmt, SQL_CLOSE);
+                    // Clear SQL instruction buffer
+                    SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+                    // Disconnect database
+                    SQLDisconnect(hdbc);
+                    rs.stat_flag = true;
+                    return rs;
+                } else {
+                    // Clear SQL instruction buffer
+                    SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+                    // Disconnect database
+                    SQLDisconnect(hdbc);
+                    result_set rs;
+                    rs.stat_flag = true;
+                    return rs;
+                };
+            }else{
+                std::cout << "Query failed" << std::endl;
+            }
+        }else{
+            std::cout << "Connect failed" << std::endl;
+            hstmt = nullptr;
+        }
+        // Clear SQL instruction buffer
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+        // Disconnect database
+        SQLDisconnect(hdbc);
+        return result_set();
+    }
+};
